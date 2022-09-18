@@ -160,8 +160,8 @@ func TestFileTail(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 2", "path": f1.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, true, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, true, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 	// complete line
 	if _, err = f1.WriteString("\n"); err != nil {
@@ -173,8 +173,8 @@ func TestFileTail(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 3", "path": f1.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, false, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 
 	// Check for truncate and append
@@ -189,8 +189,8 @@ func TestFileTail(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 2 ", "path": f2.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, true, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, true, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -199,7 +199,7 @@ func TestFileTail(t *testing.T) {
 	wg.Wait()
 
 	events = test.EventsFromChannel(fchan, 100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(nil, events, false, false); !eq {
+	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 
@@ -230,8 +230,8 @@ func TestFileTail(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 4", "path": f1.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, false, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -240,7 +240,7 @@ func TestFileTail(t *testing.T) {
 	wg.Wait()
 
 	events = test.EventsFromChannel(fchan, 100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(nil, events, false, false); !eq {
+	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 
@@ -328,8 +328,8 @@ func TestFileTailFromEnd(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 2", "path": f1.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, false, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 	// complete line
 	if _, err = f1.WriteString("\n"); err != nil {
@@ -341,8 +341,8 @@ func TestFileTailFromEnd(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 3", "path": f1.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, false, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 
 	// Check for truncate and append
@@ -357,8 +357,8 @@ func TestFileTailFromEnd(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 2 ", "path": f2.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, false, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -367,7 +367,7 @@ func TestFileTailFromEnd(t *testing.T) {
 	wg.Wait()
 
 	events = test.EventsFromChannel(fchan, 100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(nil, events, false, false); !eq {
+	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 
@@ -398,8 +398,8 @@ func TestFileTailFromEnd(t *testing.T) {
 		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 4", "path": f1.Name(), "type": "file"}},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(wantEvents, events, false, false); !eq {
-		t.Errorf("events(want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
+	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
+		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -408,7 +408,7 @@ func TestFileTailFromEnd(t *testing.T) {
 	wg.Wait()
 
 	events = test.EventsFromChannel(fchan, 100*time.Millisecond)
-	if eq, diff = test.EventsCmpWithoutTime(nil, events, false, false); !eq {
+	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 
@@ -509,7 +509,7 @@ func TestFileStress(t *testing.T) {
 		t.Fatalf("second in.Start() error = %v", startErr)
 	}
 
-	if eq, diff := test.EventsCmpWithoutTime(wantEvents, events, true, true); !eq {
+	if eq, diff := test.EventsCmp(wantEvents, events, true, true, true); !eq {
 		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 }

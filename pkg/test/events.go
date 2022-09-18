@@ -35,34 +35,50 @@ func EventsDump(events []*event.Event) string {
 	return sb.String()
 }
 
-func EventCmpWithoutTime(want, got *event.Event, skipPath bool) (bool, string) {
+func EventCmp(want, got *event.Event, skipTime, skipPath bool) (bool, string) {
+	if got == nil && want == nil {
+		return true, ""
+	}
 	var sb strings.Builder
-	if !reflect.DeepEqual(want.Tags, got.Tags) {
+	if got == nil {
+		fmt.Fprintf(&sb, "- tags = %#v\n", want.Tags)
+	} else if want == nil {
+		fmt.Fprintf(&sb, "+ tags =  %#v\n", got.Tags)
+	} else if !reflect.DeepEqual(want.Tags, got.Tags) {
 		fmt.Fprintf(&sb, "- tags = %#v\n", want.Tags)
 		fmt.Fprintf(&sb, "+ tags =  %#v\n", got.Tags)
 	}
-	for k, wantv := range want.Fields {
-		if k == "timestamp" {
-			continue
-		}
-		if skipPath && k == "path" {
-			continue
-		}
-		if gotv, exist := got.Fields[k]; exist {
-			if !reflect.DeepEqual(wantv, gotv) {
-				fmt.Fprintf(&sb, "- %s = %#v\n", k, wantv)
-				fmt.Fprintf(&sb, "+ %s = %#v\n", k, gotv)
+
+	if want != nil {
+		for k, wantv := range want.Fields {
+			if k == "timestamp" && skipTime {
+				continue
 			}
-		} else {
-			fmt.Fprintf(&sb, "- %s = %#v\n", k, wantv)
+			if skipPath && k == "path" {
+				continue
+			}
+			if got == nil {
+				fmt.Fprintf(&sb, "- %s = %#v\n", k, wantv)
+			} else if gotv, exist := got.Fields[k]; exist {
+				if !reflect.DeepEqual(wantv, gotv) {
+					fmt.Fprintf(&sb, "- %s = %#v\n", k, wantv)
+					fmt.Fprintf(&sb, "+ %s = %#v\n", k, gotv)
+				}
+			} else {
+				fmt.Fprintf(&sb, "- %s = %#v\n", k, wantv)
+			}
 		}
 	}
-	for k, gotv := range got.Fields {
-		if k == "timestamp" {
-			continue
-		}
-		if _, exist := want.Fields[k]; !exist {
-			fmt.Fprintf(&sb, "+ %s = %#v\n", k, gotv)
+	if got != nil {
+		for k, gotv := range got.Fields {
+			if k == "timestamp" {
+				continue
+			}
+			if want == nil {
+				fmt.Fprintf(&sb, "+ %s = %#v\n", k, gotv)
+			} else if _, exist := want.Fields[k]; !exist {
+				fmt.Fprintf(&sb, "+ %s = %#v\n", k, gotv)
+			}
 		}
 	}
 	if sb.Len() == 0 {
@@ -71,7 +87,7 @@ func EventCmpWithoutTime(want, got *event.Event, skipPath bool) (bool, string) {
 	return false, sb.String()
 }
 
-func EventsCmpWithoutTime(want, got []*event.Event, sortNeed, skipPath bool) (bool, string) {
+func EventsCmp(want, got []*event.Event, sortNeed, skipTime, skipPath bool) (bool, string) {
 	var sb strings.Builder
 
 	if sortNeed {
@@ -101,7 +117,7 @@ func EventsCmpWithoutTime(want, got []*event.Event, sortNeed, skipPath bool) (bo
 			fmt.Fprintf(&sb, "- [%d] = %s\n", i, event.String(want[i]))
 		} else if i >= len(want) {
 			fmt.Fprintf(&sb, "+ [%d] = %s\n", i, event.String(got[i]))
-		} else if eq, diff := EventCmpWithoutTime(want[i], got[i], skipPath); !eq {
+		} else if eq, diff := EventCmp(want[i], got[i], skipTime, skipPath); !eq {
 			fmt.Fprintf(&sb, "[%d] = { \n%s}\n", i, diff)
 		}
 	}
