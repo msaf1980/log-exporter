@@ -593,6 +593,31 @@ func benchmarkFile(b *testing.B, testDir string, n int, readBuffer string) {
 
 }
 
+func writeFiles1(name1 string, testData []string) (string, error) {
+	testDir, err := os.MkdirTemp("", "log-exporter")
+	if err != nil {
+		return "", err
+	}
+
+	f1Path := path.Join(testDir, "f1.log")
+
+	f1, err := os.Create(f1Path)
+	if err != nil {
+		return testDir, err
+	}
+	defer f1.Close()
+
+	for i := range testData {
+		f1.WriteString(testData[i])
+		f1.WriteString("\n")
+	}
+
+	if err = f1.Sync(); err != nil {
+		return testDir, err
+	}
+	return testDir, nil
+}
+
 func writeFiles2(name1, name2 string, testData []string) (string, error) {
 	testDir, err := os.MkdirTemp("", "log-exporter")
 	if err != nil {
@@ -693,21 +718,6 @@ func writeFiles4(name1, name2, name3, name4 string, testData []string) (string, 
 	return testDir, nil
 }
 
-func BenchmarkFiles4_1000_Buf_64k(t *testing.B) {
-	benchData := test.Strings(2560, 1000)
-
-	testDir, err := writeFiles4("f1.log", "f2.log", "f3.log", "f4.log", benchData)
-	if err != nil {
-		if testDir != "" {
-			os.RemoveAll(testDir)
-		}
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(testDir)
-
-	benchmarkFile(t, testDir, len(benchData), "64k")
-}
-
 func BenchmarkFiles2_1000_Buf_4k(t *testing.B) {
 	benchData := test.Strings(2560, 1000)
 
@@ -753,21 +763,6 @@ func BenchmarkFiles2_1000_Buf_32k(t *testing.B) {
 	benchmarkFile(t, testDir, len(benchData), "32k")
 }
 
-func BenchmarkFiles2_1000_Buf_64k(t *testing.B) {
-	benchData := test.Strings(2560, 1000)
-
-	testDir, err := writeFiles2("f1.log", "f2.log", benchData)
-	if err != nil {
-		if testDir != "" {
-			os.RemoveAll(testDir)
-		}
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(testDir)
-
-	benchmarkFile(t, testDir, len(benchData), "64k")
-}
-
 func BenchmarkFiles2_1000_Buf_256k(t *testing.B) {
 	benchData := test.Strings(2560, 100)
 
@@ -796,6 +791,51 @@ func BenchmarkFiles2_1000_Buf_1M(t *testing.B) {
 	defer os.RemoveAll(testDir)
 
 	benchmarkFile(t, testDir, len(benchData), "1M")
+}
+
+func BenchmarkFiles2_1000_Buf_64k(t *testing.B) {
+	benchData := test.Strings(2560, 1000)
+
+	testDir, err := writeFiles2("f1.log", "f2.log", benchData)
+	if err != nil {
+		if testDir != "" {
+			os.RemoveAll(testDir)
+		}
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(testDir)
+
+	benchmarkFile(t, testDir, len(benchData), "64k")
+}
+
+func BenchmarkFiles1_1000_Buf_64k(t *testing.B) {
+	benchData := test.Strings(2560, 1000)
+
+	testDir, err := writeFiles1("f1.log", benchData)
+	if err != nil {
+		if testDir != "" {
+			os.RemoveAll(testDir)
+		}
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(testDir)
+
+	benchmarkFile(t, testDir, len(benchData), "64k")
+}
+
+func BenchmarkFiles4_1000_Buf_64k(t *testing.B) {
+	benchData := test.Strings(2560, 1000)
+
+	testDir, err := writeFiles4("f1.log", "f2.log", "f3.log", "f4.log", benchData)
+	if err != nil {
+		if testDir != "" {
+			os.RemoveAll(testDir)
+		}
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(testDir)
+
+	benchmarkFile(t, testDir, len(benchData), "64k")
 }
 
 func init() {
