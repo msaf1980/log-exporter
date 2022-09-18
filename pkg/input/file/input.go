@@ -3,10 +3,11 @@ package file
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	jerrors "github.com/juju/errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/msaf1980/log-exporter/pkg/input"
 	"github.com/msaf1980/log-exporter/pkg/lreader"
 	"github.com/msaf1980/log-exporter/pkg/timeutil"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
@@ -26,38 +28,83 @@ import (
 const Name = "file"
 
 var errShutdown = errors.New("shutdown")
-var errAlreadyStarted = errors.New("already started")
+
+type Mode int8
+
+const (
+	ModeTail Mode = iota
+	ModeRead
+)
+
+var modeStrings []string = []string{"tail", "read"}
+
+func (m *Mode) Set(value string) error {
+	switch value {
+	case "tail":
+		*m = ModeTail
+	case "read":
+		*m = ModeRead
+	default:
+		return fmt.Errorf("invalid mode %s", value)
+	}
+	return nil
+}
+
+func (m *Mode) String() string {
+	return modeStrings[*m]
+}
+
+// UnmarshalYAML for use Aggregation in yaml files
+func (m *Mode) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var value string
+	if err := unmarshal(&value); err != nil {
+		return err
+	}
+
+	if err := m.Set(value); err != nil {
+		return fmt.Errorf("failed to parse '%s' to Aggregation: %v", value, err)
+	}
+
+	return nil
+}
 
 type Config struct {
 	input.Config
 
-	Path  string      `hcl:"path" yaml:"path" json:"path"`    // path glob
-	Read  config.Size `hcl:"read" yaml:"read" json:"read"`    // read buffer size
-	Codec string      `hcl:"codec" yaml:"codec" json:"codec"` // codec name (deefault - line)
+	Path       string      `hcl:"path" yaml:"path" json:"path"`                      // path glob
+	ReadBuffer config.Size `hcl:"read_buffer" yaml:"read_buffer" json:"read_buffer"` // read buffer size
+	Codec      string      `hcl:"codec" yaml:"codec" json:"codec"`                   // codec name (deefault - line)
 	// Username string        `hcl:"username" yaml:"username"`
 	// Pasword  string        `hcl:"usernam" yaml:"username"`
 	Interval time.Duration `hcl:"interval" yaml:"interval" json:"interval"`
-	StartEnd bool          `hcl:"start_end" yaml:"start_end" json:"start_end"`
-	SeekFile string        `hcl:"seek_file" yaml:"seek_file" json:"seek_file"` // if not set, read from end after start
+	// mode = tail If no file record in seek db, no shutdown on io.EOF.  If no file record in seek db, depend on start_end
+	// mode = read If no file record in seek db, read from start and exit on io.OEF (for completed files), start_end is ignored
+	Mode     Mode   `hcl:"mode" yaml:"mode" json:"mode"`
+	StartEnd bool   `hcl:"start_end" yaml:"start_end" json:"start_end"` // read from end  if no file record in seek db
+	SeekFile string `hcl:"seek_file" yaml:"seek_file" json:"seek_file"` // if not set, read from end after start
+	// ExitAfterRead bool   `hcl:"exit_after_read" yaml:"exit_after_read" json:"exit_after_read"` // shutdown file watcher on io.EOF (for static files and bencmarks)
 }
 
 func defaultConfig() Config {
 	return Config{
-		Config:   input.Config{Type: Name},
-		Interval: time.Second,
-		Read:     config.Size(64 * 1024),
+		Config:     input.Config{Type: Name},
+		Interval:   time.Second,
+		ReadBuffer: config.Size(64 * 1024),
 	}
 }
 
+// File is file input reader.
+//
+// In some cases (partial write to file during log rotate) can read incomplete line.
+//
+// So use proper codec with format check (better, don't fire event) or do post validate in filters (slower)
 type File struct {
 	cfg    Config
 	cfgRaw *config.ConfigRaw
 	common *config.Common
 
-	db     *fstatdb.Db
-	mtx    sync.Mutex
-	ctx    context.Context
-	cancel context.CancelFunc
+	db      *fstatdb.Db
+	running int32
 }
 
 func New(cfg *config.ConfigRaw, common *config.Common) (input.Input, error) {
@@ -79,6 +126,11 @@ func New(cfg *config.ConfigRaw, common *config.Common) (input.Input, error) {
 		return nil, errors.New("input '" + in.cfg.Type + "': interval must be <= 20s")
 	}
 
+	if in.cfg.Mode == ModeRead {
+		// disable seek file and read from end
+		in.cfg.StartEnd = false
+	}
+
 	// Check codec config
 	_, err := codec.New(in.cfgRaw, in.common, in.cfg.Path)
 	if err != nil {
@@ -86,6 +138,44 @@ func New(cfg *config.ConfigRaw, common *config.Common) (input.Input, error) {
 	}
 
 	return in, nil
+}
+
+func (in *File) Name() string {
+	return Name
+}
+
+func (in *File) fileStatInit(fpath string, n int, fnodes []fsutil.Fsnode) {
+	if in.cfg.Mode == ModeRead {
+		if in.db != nil {
+			if in.db != nil {
+				if fnode, exist := in.db.Get(fpath); exist {
+					// seek to the offset in seek db
+					fnodes[n] = fnode
+				}
+			}
+		}
+	} else {
+		// tail
+		if in.cfg.StartEnd {
+			// seek to the end, if no file in seek db or seek db is disabled
+			if in.db != nil {
+				if fnode, exist := in.db.Get(fpath); exist {
+					// seek to the offset in seek db
+					fnodes[n] = fnode
+				} else {
+					// seek to the end, if seek db is disabled
+					fsutil.LStat(fpath, &fnodes[n])
+					in.db.Set(fpath, fnodes[n])
+				}
+			}
+		} else if fnode, exist := in.db.Get(fpath); exist {
+			// seek to the offset in seek db
+			fnodes[n] = fnode
+		} else {
+			// seek to the end
+			in.db.Set(fpath, fnode)
+		}
+	}
 }
 
 func (in *File) Start(ctx context.Context, outChan chan<- *event.Event) error {
@@ -106,38 +196,34 @@ func (in *File) Start(ctx context.Context, outChan chan<- *event.Event) error {
 		}
 	}
 
+	files := make([]string, 0, len(matches))
+	filesMap := make(map[string]bool)
 	fnodes := make([]fsutil.Fsnode, len(matches))
-	for i := range matches {
-		fpath, err := evalSymlinks(ctx, matches[i])
+	i := 0
+	for _, match := range matches {
+		var isDir bool
+		fpath, err := evalSymlinks(ctx, match)
 		if err != nil {
 			log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("eval symlink failed")
 			continue
 		}
 
-		var fi os.FileInfo
-		if fi, err = os.Stat(fpath); err != nil {
+		if _, exist := filesMap[fpath]; exist {
+			continue
+		}
+
+		if isDir, err = fsutil.IsDir(fpath); err != nil {
 			log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("stat failed")
-			continue
-		}
-
-		if fi.IsDir() {
+			return err
+		} else if isDir {
 			log.Warn().Str("input", in.cfg.Type).Str("file", fpath).Msg("dir skipping")
-			continue
+			return err
 		}
 
-		if in.cfg.StartEnd {
-			// seek to the end
-			fsutil.Stat(fi, &fnodes[i])
-			if in.db != nil {
-				in.db.Set(fpath, fnodes[i])
-			}
-		} else if fnode, exist := in.db.Get(fpath); exist {
-			fnodes[i] = fnode
-		} else {
-			in.db.Set(fpath, fnodes[i])
-		}
-
-		matches[i] = fpath
+		filesMap[fpath] = true
+		files = append(files, fpath)
+		in.fileStatInit(fpath, i, fnodes)
+		i++
 	}
 
 	var statChan chan fstatdb.StatEvent
@@ -157,10 +243,19 @@ func (in *File) Start(ctx context.Context, outChan chan<- *event.Event) error {
 		})
 	}
 
-	for i, fpath := range matches {
+	for i, fpath := range files {
 		path := fpath
 		n := i
+		atomic.AddInt32(&in.running, 1)
 		eg.Go(func() error {
+			defer func() {
+				running := atomic.AddInt32(&in.running, -1)
+				if running < 1 {
+					if in.db != nil {
+						close(statChan)
+					}
+				}
+			}()
 			return in.fileWatchLoop(ctx, path, fnodes[n], statChan, outChan)
 		})
 	}
@@ -174,6 +269,7 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 		fp                   *os.File
 		size                 int64
 		truncated, recreated bool
+		isDir                bool
 	)
 
 	codec, err := codec.New(in.cfgRaw, in.common, fpath)
@@ -188,18 +284,15 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 		return err
 	}
 
-	var fi os.FileInfo
-	if fi, err = os.Stat(fpath); err != nil {
+	if isDir, err = fsutil.IsDir(fpath); err != nil {
 		log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("stat failed")
 		return err
-	}
-
-	if fi.IsDir() {
+	} else if isDir {
 		log.Warn().Str("input", in.cfg.Type).Str("file", fpath).Msg("dir skipping")
 		return err
 	}
 
-	bufSize := int(in.cfg.Read.Value())
+	bufSize := int(in.cfg.ReadBuffer.Value())
 	reader := lreader.New(fp, bufSize)
 
 	if fp, truncated, recreated, err = in.openFile(fp, reader, fpath, &fnode); err == nil {
@@ -219,31 +312,49 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 		}
 	}()
 
-	log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
-	if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil && err != io.EOF {
-		log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
-		fp.Close()
-		fp = nil
+	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
+	if err == nil {
+		if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil {
+			if err == errShutdown {
+				return nil
+			}
+			if err != io.EOF {
+				log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
+				fp.Close()
+				fp = nil
+			} else if in.cfg.Mode == ModeRead {
+				log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("read ended on EOF")
+				return nil
+			}
+		}
+	}
+	if in.cfg.Mode == ModeRead {
+		return nil
 	}
 
-	log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch started")
+	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch started")
 	t := time.NewTimer(in.cfg.Interval)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Err(err).Msg("file watch shutdown")
+			log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
 			return nil
 		case <-t.C:
-			log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer")
+			// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer")
 			if fp != nil {
 				size = fsutil.FSizeN(fp)
 				if size > fnode.Size {
-					log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
-					if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil && err != io.EOF {
-						log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
-						fp.Close()
-						fp = nil
+					// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
+					if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil {
+						if err == errShutdown {
+							return nil
+						}
+						if err != io.EOF {
+							log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
+							fp.Close()
+							fp = nil
+						}
 					}
 				}
 			}
@@ -254,11 +365,16 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 					log.Debug().Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen recreated")
 				}
 				if truncated || recreated {
-					log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
-					if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil && err != io.EOF {
-						log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
-						fp.Close()
-						fp = nil
+					// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
+					if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil {
+						if err == errShutdown {
+							return nil
+						}
+						if err != io.EOF {
+							log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
+							fp.Close()
+							fp = nil
+						}
 					}
 				}
 			} else {
@@ -266,7 +382,7 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 			}
 		}
 		t.Reset(in.cfg.Interval)
-		log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer reset")
+		// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer reset")
 	}
 }
 
@@ -278,7 +394,7 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 	select {
 	case <-ctx.Done():
 		err = errShutdown
-		log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Msg("cancel")
+		log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
 		return
 	default:
 	}
@@ -291,8 +407,10 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 		processed++
 		fnode.Size += int64(len(data))
 		if e, err = codec.Parse(ts, data); err == nil {
-			log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Str("text", stringutils.UnsafeString(data)).Str("event", event.String(e)).Err(err).Msg("parse")
 			if e != nil {
+				if zerolog.GlobalLevel() == zerolog.TraceLevel {
+					log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Str("text", stringutils.UnsafeString(data)).Str("event", event.String(e)).Err(err).Msg("parse")
+				}
 				outChan <- e
 			}
 		} else {
@@ -304,15 +422,18 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 				statChan <- fstatdb.StatEvent{Path: fpath, Stat: *fnode}
 				processed = 0
 			}
-			if _, done := <-ctx.Done(); done {
+			select {
+			case <-ctx.Done():
 				err = errShutdown
-				break
+				log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
+				return
+			default:
 			}
 		}
 	}
 	if statChan != nil && processed > 0 {
 		statChan <- fstatdb.StatEvent{Path: fpath, Stat: *fnode}
 	}
-	log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file read loop end")
+	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file read loop end")
 	return err
 }

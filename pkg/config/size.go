@@ -16,13 +16,13 @@ func (u *Size) UnmarshalText(text []byte) error {
 	last := len(value) - 1
 	suffix := value[last]
 	switch suffix {
-	case 'k':
+	case 'k', 'K':
 		s, err = strconv.ParseInt(value[0:last], 10, 64)
 		s *= 1024
-	case 'm':
+	case 'm', 'M':
 		s, err = strconv.ParseInt(value[0:last], 10, 64)
 		s *= 1024 * 1024
-	case 'g':
+	case 'g', 'G':
 		s, err = strconv.ParseInt(value[0:last], 10, 64)
 		s *= 1024 * 1024 * 1024
 	default:

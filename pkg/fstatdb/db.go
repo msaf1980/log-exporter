@@ -23,8 +23,8 @@ var (
 )
 
 // Db store files state in bimary file
-// filelen_u64 filname inode_u64 offset_i64
-// filelen_u64 filname inode_u64 offset_i64
+// filelen_u64 filname dev_u64 inode_u64 offset_i64
+// filelen_u64 filname dev_u64 inode_u64 offset_i64
 type Db struct {
 	f *os.File
 	b bytes.Buffer
@@ -102,6 +102,12 @@ func (db *Db) load() error {
 		if err != nil {
 			return err
 		}
+		fsnode.Dev = binary.LittleEndian.Uint64(buf[:SIZE_INT64])
+		// inode
+		err = read(r, buf[:SIZE_INT64])
+		if err != nil {
+			return err
+		}
 		fsnode.Inode = binary.LittleEndian.Uint64(buf[:SIZE_INT64])
 
 		// offset
@@ -137,6 +143,9 @@ func (db *Db) Save() (err error) {
 		binary.LittleEndian.PutUint64(buf[:SIZE_INT64], uint64(len(path)))
 		db.b.Write(buf[:SIZE_INT64])
 		db.b.WriteString(path)
+		// dev
+		binary.LittleEndian.PutUint64(buf[:SIZE_INT64], fsnode.Dev)
+		db.b.Write(buf[:SIZE_INT64])
 		// inode
 		binary.LittleEndian.PutUint64(buf[:SIZE_INT64], fsnode.Inode)
 		db.b.Write(buf[:SIZE_INT64])

@@ -10,6 +10,7 @@ import (
 )
 
 type Line struct {
+	name   string
 	typ    string
 	path   string
 	common *config.Common
@@ -18,22 +19,30 @@ type Line struct {
 const Name = "line"
 
 func New(cfg *config.ConfigRaw, common *config.Common, path string) (codec.Codec, error) {
-	return &Line{typ: cfg.GetStringWithDefault("type", ""), path: path, common: common}, nil
+	return &Line{typ: cfg.GetStringWithDefault("type", ""), path: path, common: common, name: cfg.GetStringWithDefault("name", Name)}, nil
+}
+
+func (p *Line) Name() string {
+	return p.name
 }
 
 func (p *Line) Parse(time timeutil.Time, data []byte) (*event.Event, error) {
-	if len(data) == 0 || data[len(data)-1] != '\n' {
-		return nil, codec.ErrCodecEmpty
+	if len(data) == 0 {
+		return nil, codec.ErrEmpty
+	}
+	if data[len(data)-1] != '\n' {
+		return nil, codec.ErrIncomplete
 	}
 	data = bytes.TrimRight(data, "\r\n")
 	if len(data) == 0 {
-		return nil, codec.ErrCodecEmpty
+		return nil, codec.ErrEmpty
 	}
 	message := string(data)
 	return &event.Event{
 		Timestamp: time.Time(),
 		Fields: map[string]interface{}{
 			"type":      p.typ,
+			"name":      p.name,
 			"timestamp": time.String(),
 			"message":   message,
 			"host":      p.common.Hostname,

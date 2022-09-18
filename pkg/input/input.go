@@ -9,6 +9,7 @@ import (
 )
 
 type Input interface {
+	Name() string
 	Start(ctx context.Context, outChan chan<- *event.Event) error
 }
 

@@ -9,10 +9,11 @@ import (
 	// "github.com/msaf1980/log-exporter/pkg/input/nginx_access"
 )
 
-var ErrCodecFormat = errors.New("codec line validation error")
-var ErrCodecEmpty = errors.New("codec line empty")
+var ErrIncomplete = errors.New("codec line incomplete")
+var ErrEmpty = errors.New("codec line empty")
 
 type Codec interface {
+	Name() string
 	// Parse return event, praseErrror
 	//
 	// can return nil without parseErr (may be part of multiline event)

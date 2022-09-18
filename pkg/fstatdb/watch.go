@@ -25,8 +25,10 @@ LOOP1:
 		select {
 		case <-ctx.Done():
 			break LOOP1
-		case stat := <-statChan:
-			i++
+		case stat, opened := <-statChan:
+			if !opened {
+				break LOOP1
+			}
 			changed = true
 			db.Set(stat.Path, stat.Stat)
 			if i%flush == 0 {
@@ -45,7 +47,10 @@ LOOP2:
 		select {
 		case <-ticker.C:
 			break LOOP2
-		case stat := <-statChan:
+		case stat, opened := <-statChan:
+			if !opened {
+				break LOOP2
+			}
 			i++
 			changed = true
 			db.Set(stat.Path, stat.Stat)

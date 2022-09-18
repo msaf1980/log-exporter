@@ -87,3 +87,11 @@ func LSizeN(path string) int64 {
 		return -1
 	}
 }
+
+func IsDir(fpath string) (bool, error) {
+	if fi, err := os.Stat(fpath); err != nil {
+		return false, err
+	} else {
+		return fi.IsDir(), nil
+	}
+}

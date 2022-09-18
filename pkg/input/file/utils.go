@@ -8,7 +8,6 @@ import (
 
 	"github.com/msaf1980/log-exporter/pkg/fsutil"
 	"github.com/msaf1980/log-exporter/pkg/lreader"
-	"github.com/rs/zerolog/log"
 )
 
 func IsNotExist(path string) bool {
@@ -43,20 +42,24 @@ func (in *File) openFile(fp *os.File, reader *lreader.Reader, fpath string, fnod
 		truncated, recreated bool
 		err                  error
 		fn                   fsutil.Fsnode
-		open                 bool
+		needSeek             bool
 	)
 	if fp == nil {
 		if fp, err = os.Open(fpath); err != nil {
 			return nil, truncated, recreated, err
 		}
-		open = true
+		needSeek = true
 	}
 	if err = fsutil.FStat(fp, &fn); err != nil {
 		fp.Close()
 		return nil, truncated, recreated, err
 	}
 	if fsutil.Other(&fn, fnode) {
-		recreated = true
+		if fnode.Inode == 0 {
+			needSeek = true
+		} else {
+			recreated = true
+		}
 	} else if fn.Size < fnode.Size {
 		truncated = true
 	}
@@ -80,9 +83,9 @@ func (in *File) openFile(fp *os.File, reader *lreader.Reader, fpath string, fnod
 		fnode.Nlink = fn.Nlink
 	}
 
-	log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fn.Size).Msg("check")
+	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fn.Size).Msg("check")
 
-	if open || recreated || truncated {
+	if needSeek || recreated || truncated {
 		_, err = fp.Seek(fnode.Size, 0)
 		reader.Reset(fp)
 	}

@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -34,7 +35,7 @@ func EventsDump(events []*event.Event) string {
 	return sb.String()
 }
 
-func EventCmpWithoutTime(want, got *event.Event) (bool, string) {
+func EventCmpWithoutTime(want, got *event.Event, skipPath bool) (bool, string) {
 	var sb strings.Builder
 	if !reflect.DeepEqual(want.Tags, got.Tags) {
 		fmt.Fprintf(&sb, "- tags = %#v\n", want.Tags)
@@ -42,6 +43,9 @@ func EventCmpWithoutTime(want, got *event.Event) (bool, string) {
 	}
 	for k, wantv := range want.Fields {
 		if k == "timestamp" {
+			continue
+		}
+		if skipPath && k == "path" {
 			continue
 		}
 		if gotv, exist := got.Fields[k]; exist {
@@ -67,8 +71,29 @@ func EventCmpWithoutTime(want, got *event.Event) (bool, string) {
 	return false, sb.String()
 }
 
-func EventsCmpWithoutTime(want, got []*event.Event) (bool, string) {
+func EventsCmpWithoutTime(want, got []*event.Event, sortNeed, skipPath bool) (bool, string) {
 	var sb strings.Builder
+
+	if sortNeed {
+		sort.Slice(want, func(i, j int) bool {
+			wantI := want[i].Fields["message"].(string)
+			wantJ := want[j].Fields["message"].(string)
+			if wantI == wantJ && !skipPath {
+				wantI = want[i].Fields["path"].(string)
+				wantJ = want[j].Fields["path"].(string)
+			}
+			return wantI < wantJ
+		})
+		sort.Slice(got, func(i, j int) bool {
+			gotI := got[i].Fields["message"].(string)
+			gotJ := got[j].Fields["message"].(string)
+			if gotI == gotJ && !skipPath {
+				gotI = got[i].Fields["path"].(string)
+				gotJ = got[j].Fields["path"].(string)
+			}
+			return gotI < gotJ
+		})
+	}
 
 	maxLen := max(len(want), len(got))
 	for i := 0; i < maxLen; i++ {
@@ -76,8 +101,8 @@ func EventsCmpWithoutTime(want, got []*event.Event) (bool, string) {
 			fmt.Fprintf(&sb, "- [%d] = %s\n", i, event.String(want[i]))
 		} else if i >= len(want) {
 			fmt.Fprintf(&sb, "+ [%d] = %s\n", i, event.String(got[i]))
-		} else if eq, diff := EventCmpWithoutTime(want[i], got[i]); !eq {
-			fmt.Fprintf(&sb, "  [%d] = %s\n", i, diff)
+		} else if eq, diff := EventCmpWithoutTime(want[i], got[i], skipPath); !eq {
+			fmt.Fprintf(&sb, "[%d] = { \n%s}\n", i, diff)
 		}
 	}
 

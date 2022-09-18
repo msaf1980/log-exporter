@@ -21,8 +21,8 @@ func TestDb(t *testing.T) {
 	require.Equal(t, 0, len(db.v))
 
 	files := map[string]fsutil.Fsnode{
-		"/var/log/messages": {Inode: 1024, Size: 4096},
-		"/var/log/yum.log":  {Inode: 2001, Size: 1},
+		"/var/log/messages": {Dev: 1, Inode: 1024, Size: 4096},
+		"/var/log/yum.log":  {Dev: 1, Inode: 2001, Size: 1},
 	}
 
 	for path, fsnode := range files {
@@ -35,7 +35,7 @@ func TestDb(t *testing.T) {
 
 	fsnode, exist := db.Get("/var/log/yum.log")
 	if exist {
-		assert.Equal(t, fsutil.Fsnode{Inode: 2001, Size: 1}, fsnode)
+		assert.Equal(t, fsutil.Fsnode{Dev: 1, Inode: 2001, Size: 1}, fsnode)
 	} else {
 		assert.True(t, exist)
 	}
