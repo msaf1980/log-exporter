@@ -6,6 +6,5 @@ import (
 )
 
 func init() {
-	codec.Set("", line.New) // default codec
 	codec.Set(line.Name, line.New)
 }
