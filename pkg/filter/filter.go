@@ -13,7 +13,7 @@ type Filter interface {
 }
 
 type Config struct {
-	Type string `hcl:"type" yaml:"type"` // input type (from inputs map)
+	Type string `hcl:"type" yaml:"type"` // filter type (from filters map)
 }
 
 type FilterFn func(*config.ConfigRaw, *config.Common) (Filter, error)

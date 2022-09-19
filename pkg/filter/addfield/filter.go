@@ -62,7 +62,7 @@ func New(cfg *config.ConfigRaw, common *config.Common) (filter.Filter, error) {
 		if strings.Contains(v, "%{") {
 			f.templated = true
 			if f.tpl, err = stringutils.InitTemplate(f.value); err != nil {
-				log.Error().Str("input", fi.cfg.Type).Str("field", "format").Err(err).Msg("template init")
+				log.Error().Str("config", fi.common.Config).Str("input", fi.cfg.Type).Str("field", "format").Err(err).Msg("template init")
 				return nil, err
 			}
 		}
