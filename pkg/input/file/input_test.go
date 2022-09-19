@@ -267,7 +267,7 @@ func TestFileTail(t *testing.T) {
 
 	events = test.EventsFromChannel(fchan, 100*time.Millisecond)
 	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
-		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
+		t.Errorf("second flush events (want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 	// put to pool for reuse
 	event.PutSlice(events)
@@ -460,7 +460,7 @@ func TestFileTailFromEnd(t *testing.T) {
 
 	events = test.EventsFromChannel(fchan, 100*time.Millisecond)
 	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
-		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
+		t.Errorf("second flush events (want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 	// put to pool for reuse
 	event.PutSlice(events)
@@ -566,7 +566,7 @@ func TestFileStress(t *testing.T) {
 	}
 
 	if eq, diff := test.EventsCmp(wantEvents, events, true, true, true); !eq {
-		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
+		t.Errorf("second flush events (want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
 	// put to pool for reuse
 	event.PutSlice(events)
@@ -647,7 +647,7 @@ func benchmarkFile(b *testing.B, testDir string, n int, readBuffer string) {
 	b.ReportMetric(float64(elapsed.Nanoseconds())/float64(count), "ns/event")
 
 	// if eq, diff = test.EventsCmpWithoutTime(nil, events, false); !eq {
-	// 	t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
+	// 	t.Errorf("second flush events (want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	// }
 
 }
