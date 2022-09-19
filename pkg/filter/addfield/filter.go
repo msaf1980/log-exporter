@@ -62,7 +62,7 @@ func New(cfg *config.ConfigRaw, common *config.Common) (filter.Filter, error) {
 		if strings.Contains(v, "%{") {
 			f.templated = true
 			if f.tpl, err = stringutils.InitTemplate(f.value); err != nil {
-				log.Error().Str("input", fi.cfg.Type).Str("field", "format").Err(err).Msg("template init")
+				log.Error().Str("config", fi.common.Config).Str("input", fi.cfg.Type).Str("field", "format").Err(err).Msg("template init")
 				return nil, err
 			}
 		}
@@ -80,10 +80,13 @@ func (fi *AddField) Parse(e *event.Event) (err error) {
 	for k, f := range fi.cfg.templated {
 		if f.templated {
 			s, part := f.tpl.ExecutePartial(e.Fields)
-			e.Fields[k] = s
 			if part {
-				err = filter.ErrPartExpand
+				s = strings.ReplaceAll(s, "%{timestamp}", e.Timestamp.String())
+				if strings.Contains(s, "%{") {
+					err = filter.ErrPartExpand
+				}
 			}
+			e.Fields[k] = s
 		} else {
 			e.Fields[k] = f.value
 		}

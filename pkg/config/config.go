@@ -44,6 +44,7 @@ func (r ConfigRaw) Decode(conf interface{}) error {
 
 type Common struct {
 	Hostname string `hcl:"hostname" yaml:"hostname" json:"hostname"`
+	Config   string `hcl:"-" yaml:"-" json:"-"`
 }
 
 type Config struct {
@@ -66,6 +67,7 @@ func LoadConfig(path string) (*Config, error) {
 			return nil, err
 		}
 	}
+	cfg.Common.Config = path
 
 	return cfg, nil
 }

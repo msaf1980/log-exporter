@@ -46,14 +46,13 @@ func (p *Line) Parse(time timeutil.Time, data []byte) (*event.Event, error) {
 		// non-pooled
 		message := string(data) // data is a slice of reader buffer and destroyed on next read
 		return &event.Event{
-			Timestamp: time.Time(),
+			Timestamp: time,
 			Fields: map[string]interface{}{
-				"type":      p.typ,
-				"name":      p.name,
-				"timestamp": time.String(),
-				"message":   message,
-				"host":      p.common.Hostname,
-				"path":      p.path,
+				"type":    p.typ,
+				"name":    p.name,
+				"message": message,
+				"host":    p.common.Hostname,
+				"path":    p.path,
 			},
 		}, nil
 	} else {
@@ -63,7 +62,6 @@ func (p *Line) Parse(time timeutil.Time, data []byte) (*event.Event, error) {
 		}
 		e.Fields["type"] = p.typ
 		e.Fields["name"] = p.name
-		e.Fields["timestamp"] = time.String()
 		e.Fields["message"] = message
 		e.Fields["host"] = p.common.Hostname
 		e.Fields["path"] = p.path

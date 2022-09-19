@@ -55,8 +55,8 @@ func TestLine_Parse(t *testing.T) {
 			name: "line\\n",
 			data: []byte("line\n"),
 			want: &event.Event{
-				Timestamp: ts.Time(),
-				Fields:    map[string]interface{}{"timestamp": ts.String(), "message": "line", "type": typ, "name": "line", "host": hostname, "path": path},
+				Timestamp: ts,
+				Fields:    map[string]interface{}{"message": "line", "type": typ, "name": "line", "host": hostname, "path": path},
 				Tags:      map[string]int{},
 			},
 		},
@@ -64,8 +64,8 @@ func TestLine_Parse(t *testing.T) {
 			name: "string\\r\\n",
 			data: []byte("string\r\n"),
 			want: &event.Event{
-				Timestamp: ts.Time(),
-				Fields:    map[string]interface{}{"timestamp": ts.String(), "message": "string", "type": typ, "name": "line", "host": hostname, "path": path},
+				Timestamp: ts,
+				Fields:    map[string]interface{}{"message": "string", "type": typ, "name": "line", "host": hostname, "path": path},
 				Tags:      map[string]int{},
 			},
 		},
@@ -98,7 +98,7 @@ func TestLine_ParseWithName(t *testing.T) {
 	message := "test"
 	ts := timeutil.Now()
 	want := &event.Event{
-		Timestamp: ts.Time(), Fields: map[string]interface{}{
+		Timestamp: ts, Fields: map[string]interface{}{
 			"name": name, "host": hostname, "message": message, "path": path, "timestamp": ts.String(), "type": typ,
 		},
 		Tags: map[string]int{},

@@ -186,7 +186,7 @@ func (in *File) Start(ctx context.Context, outChan chan<- *event.Event) error {
 
 	if in.cfg.SeekFile == "" {
 		if !in.cfg.StartEnd {
-			log.Warn().Str("input", in.cfg.Type).Str("file", in.cfg.Path).Err(err).Msg("seek file not set, force start from end")
+			log.Warn().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", in.cfg.Path).Err(err).Msg("seek file not set, force start from end")
 			in.cfg.StartEnd = true
 		}
 	} else {
@@ -204,7 +204,7 @@ func (in *File) Start(ctx context.Context, outChan chan<- *event.Event) error {
 		var isDir bool
 		fpath, err := evalSymlinks(ctx, match)
 		if err != nil {
-			log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("eval symlink failed")
+			log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("eval symlink failed")
 			continue
 		}
 
@@ -213,10 +213,10 @@ func (in *File) Start(ctx context.Context, outChan chan<- *event.Event) error {
 		}
 
 		if isDir, err = fsutil.IsDir(fpath); err != nil {
-			log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("stat failed")
+			log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("stat failed")
 			return err
 		} else if isDir {
-			log.Warn().Str("input", in.cfg.Type).Str("file", fpath).Msg("dir skipping")
+			log.Warn().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("dir skipping")
 			return err
 		}
 
@@ -274,21 +274,21 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 
 	codec, err := codec.New(in.cfgRaw, in.common, fpath)
 	if err != nil {
-		log.Error().Str("input", in.cfg.Type).Str("codec", in.cfg.Codec).Str("file", fpath).Err(err).Msg("codec init failed")
+		log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("codec", in.cfg.Codec).Str("file", fpath).Err(err).Msg("codec init failed")
 		return err
 	}
 
 	fpath, err = evalSymlinks(ctx, fpath)
 	if err != nil {
-		log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("eval symlink failed")
+		log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("eval symlink failed")
 		return err
 	}
 
 	if isDir, err = fsutil.IsDir(fpath); err != nil {
-		log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("stat failed")
+		log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("stat failed")
 		return err
 	} else if isDir {
-		log.Warn().Str("input", in.cfg.Type).Str("file", fpath).Msg("dir skipping")
+		log.Warn().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("dir skipping")
 		return err
 	}
 
@@ -297,12 +297,12 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 
 	if fp, truncated, recreated, err = in.openFile(fp, reader, fpath, &fnode); err == nil {
 		if truncated {
-			log.Debug().Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen truncated")
+			log.Debug().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen truncated")
 		} else if recreated {
-			log.Debug().Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen recreated")
+			log.Debug().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen recreated")
 		}
 	} else {
-		log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("open failed")
+		log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("open failed")
 		return err
 	}
 
@@ -312,18 +312,18 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 		}
 	}()
 
-	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
+	// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
 	if err == nil {
 		if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil {
 			if err == errShutdown {
 				return nil
 			}
 			if err != io.EOF {
-				log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
+				log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
 				fp.Close()
 				fp = nil
 			} else if in.cfg.Mode == ModeRead {
-				log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("read ended on EOF")
+				log.Info().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("read ended on EOF")
 				return nil
 			}
 		}
@@ -332,26 +332,26 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 		return nil
 	}
 
-	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch started")
+	// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch started")
 	t := time.NewTimer(in.cfg.Interval)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
+			log.Info().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
 			return nil
 		case <-t.C:
-			// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer")
+			// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer")
 			if fp != nil {
 				size = fsutil.FSizeN(fp)
 				if size > fnode.Size {
-					// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
+					// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
 					if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil {
 						if err == errShutdown {
 							return nil
 						}
 						if err != io.EOF {
-							log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
+							log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
 							fp.Close()
 							fp = nil
 						}
@@ -360,29 +360,29 @@ func (in *File) fileWatchLoop(ctx context.Context, fpath string, fnode fsutil.Fs
 			}
 			if fp, truncated, recreated, err = in.openFile(fp, reader, fpath, &fnode); err == nil {
 				if truncated {
-					log.Debug().Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen truncated")
+					log.Debug().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen truncated")
 				} else if recreated {
-					log.Debug().Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen recreated")
+					log.Debug().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("reopen recreated")
 				}
 				if truncated || recreated {
-					// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
+					// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Int64("offset", fnode.Size).Int64("size", fsutil.FSizeN(fp)).Msg("file read loop")
 					if err = in.fileReadUntilEOF(ctx, reader, codec, fpath, &fnode, statChan, outChan); err != nil {
 						if err == errShutdown {
 							return nil
 						}
 						if err != io.EOF {
-							log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
+							log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("read failed")
 							fp.Close()
 							fp = nil
 						}
 					}
 				}
 			} else {
-				log.Error().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("open failed")
+				log.Error().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("open failed")
 			}
 		}
 		t.Reset(in.cfg.Interval)
-		// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer reset")
+		// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file watch timer reset")
 	}
 }
 
@@ -394,7 +394,7 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 	select {
 	case <-ctx.Done():
 		err = errShutdown
-		log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
+		log.Info().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
 		return
 	default:
 	}
@@ -402,6 +402,10 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 	ts := timeutil.Now()
 	for {
 		if data, err = reader.ReadUntil('\n'); err != nil {
+			if statChan != nil && processed > 0 {
+				statChan <- fstatdb.StatEvent{Path: fpath, Stat: *fnode}
+				processed = 0
+			}
 			break
 		}
 		processed++
@@ -409,15 +413,16 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 		if e, err = codec.Parse(ts, data); err == nil {
 			if e != nil {
 				if zerolog.GlobalLevel() == zerolog.TraceLevel {
-					log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Str("text", stringutils.UnsafeString(data)).Str("event", event.String(e)).Err(err).Msg("parse")
+					log.Trace().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Str("text", stringutils.UnsafeString(data)).Str("event", event.String(e)).Err(err).Msg("parse")
 				}
 				outChan <- e
 			}
 		} else {
-			log.Debug().Str("input", in.cfg.Type).Str("file", fpath).Str("text", stringutils.UnsafeString(data)).Err(err).Msg("parse")
+			log.Debug().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Str("text", stringutils.UnsafeString(data)).Err(err).Msg("parse")
 		}
 
 		if processed > 20 {
+			ts = timeutil.Now()
 			if statChan != nil {
 				statChan <- fstatdb.StatEvent{Path: fpath, Stat: *fnode}
 				processed = 0
@@ -425,7 +430,7 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 			select {
 			case <-ctx.Done():
 				err = errShutdown
-				log.Info().Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
+				log.Info().Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Msg("shutdown")
 				return
 			default:
 			}
@@ -434,6 +439,6 @@ func (in *File) fileReadUntilEOF(ctx context.Context, reader *lreader.Reader, co
 	if statChan != nil && processed > 0 {
 		statChan <- fstatdb.StatEvent{Path: fpath, Stat: *fnode}
 	}
-	// log.Trace().Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file read loop end")
+	// log.Trace.Str("config", in.common.Config).Str("input", in.cfg.Type).Str("file", fpath).Err(err).Msg("file read loop end")
 	return err
 }

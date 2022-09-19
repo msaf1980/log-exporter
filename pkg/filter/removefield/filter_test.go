@@ -31,7 +31,7 @@ func TestRemoveField(t *testing.T) {
 	}{
 		{
 			in: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "line", "host": hostname, "message": "test1", "path": "", "type": "file",
 					"timestamp": ts.String(),
@@ -40,7 +40,7 @@ func TestRemoveField(t *testing.T) {
 				Tags: map[string]int{},
 			},
 			want: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "line", "host": hostname, "message": "test1", "path": "", "type": "file",
 					"timestamp": ts.String(),
@@ -50,7 +50,7 @@ func TestRemoveField(t *testing.T) {
 		},
 		{
 			in: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "access", "host": hostname, "message": "test2", "path": "/var/log/messages", "type": "file",
 					"timestamp": ts.String(),
@@ -58,7 +58,7 @@ func TestRemoveField(t *testing.T) {
 				Tags: map[string]int{},
 			},
 			want: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "access", "host": hostname, "message": "test2", "path": "/var/log/messages", "type": "file",
 					"timestamp": ts.String(),
@@ -68,7 +68,7 @@ func TestRemoveField(t *testing.T) {
 		},
 		{
 			in: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "access", "host": hostname, "message": "test2", "path": "/var/log/messages", "type": "file",
 					"timestamp": ts.String(),
@@ -78,7 +78,7 @@ func TestRemoveField(t *testing.T) {
 				Tags: map[string]int{},
 			},
 			want: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "access", "host": hostname, "message": "test2", "path": "/var/log/messages", "type": "file",
 					"timestamp": ts.String(),

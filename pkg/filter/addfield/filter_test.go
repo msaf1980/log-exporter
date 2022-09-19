@@ -32,20 +32,16 @@ func TestAddField(t *testing.T) {
 	}{
 		{
 			in: &event.Event{
-				Timestamp: ts.Time(),
-				Fields: map[string]interface{}{
-					"name": "line", "host": "localhost", "message": "test1", "path": "", "type": "file",
-					"timestamp": ts.String(),
-				},
-				Tags: map[string]int{},
+				Timestamp: ts,
+				Fields:    map[string]interface{}{"name": "line", "host": "localhost", "message": "test1", "path": "", "type": "file"},
+				Tags:      map[string]int{},
 			},
 			want: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "line", "host": "localhost", "message": "test1", "path": "", "type": "file",
-					"timestamp": ts.String(),
-					"test1":     "add 1",
-					"test2":     "localhost 2 %{timestamp1} " + ts.String(),
+					"test1": "add 1",
+					"test2": "localhost 2 %{timestamp1} " + ts.String(),
 				},
 				Tags: map[string]int{},
 			},
@@ -53,19 +49,17 @@ func TestAddField(t *testing.T) {
 		},
 		{
 			in: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "line", "host": "localhost", "message": "test1", "path": "", "type": "file",
-					"timestamp":  ts.String(),
 					"timestamp1": "test",
 				},
 				Tags: map[string]int{},
 			},
 			want: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "line", "host": "localhost", "message": "test1", "path": "", "type": "file",
-					"timestamp":  ts.String(),
 					"timestamp1": "test",
 					"test1":      "add 1",
 					"test2":      "localhost 2 test " + ts.String(),
@@ -75,7 +69,7 @@ func TestAddField(t *testing.T) {
 		},
 		{
 			in: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "access", "host": "localhost", "message": "test2", "path": "/var/log/messages", "type": "file",
 					"timestamp": ts.String(),
@@ -83,12 +77,11 @@ func TestAddField(t *testing.T) {
 				Tags: map[string]int{},
 			},
 			want: &event.Event{
-				Timestamp: ts.Time(),
+				Timestamp: ts,
 				Fields: map[string]interface{}{
 					"name": "access", "host": "localhost", "message": "test2", "path": "/var/log/messages", "type": "file",
-					"timestamp": ts.String(),
-					"test1":     "add 1",
-					"test2":     "localhost 2 %{timestamp1} " + ts.String(),
+					"test1": "add 1",
+					"test2": "localhost 2 %{timestamp1} " + ts.String(),
 				},
 				Tags: map[string]int{},
 			},
