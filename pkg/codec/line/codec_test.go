@@ -79,6 +79,12 @@ func TestLine_Parse(t *testing.T) {
 			if eq, diff := test.EventCmp(got, tt.want, false, false); !eq {
 				t.Errorf("event[%d] mismatch:\n%s", i, diff)
 			}
+			if got != nil {
+				//for check clear reused maps
+				got.Fields["add"] = "test"
+				got.Tags["tag"] = 1
+			}
+			// put event to pool for reuse
 			event.Put(got)
 		})
 	}

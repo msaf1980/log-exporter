@@ -58,15 +58,19 @@ func (p *Line) Parse(time timeutil.Time, data []byte) (*event.Event, error) {
 		}, nil
 	} else {
 		message := stringutils.UnsafeString(e.Data[:e.Size])
-		e.Fields = map[string]interface{}{
-			"type":      p.typ,
-			"name":      p.name,
-			"timestamp": time.String(),
-			"message":   message,
-			"host":      p.common.Hostname,
-			"path":      p.path,
+		for k := range e.Fields {
+			delete(e.Fields, k)
 		}
-		e.Tags = make(map[string]int)
+		e.Fields["type"] = p.typ
+		e.Fields["name"] = p.name
+		e.Fields["timestamp"] = time.String()
+		e.Fields["message"] = message
+		e.Fields["host"] = p.common.Hostname
+		e.Fields["path"] = p.path
+
+		for k := range e.Tags {
+			delete(e.Tags, k)
+		}
 
 		return e, nil
 	}

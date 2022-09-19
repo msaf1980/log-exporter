@@ -63,3 +63,9 @@ func Put(e *Event) {
 		largePool4.Put(e)
 	}
 }
+
+func PutSlice(events []*Event) {
+	for _, e := range events {
+		Put(e)
+	}
+}

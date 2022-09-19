@@ -156,13 +156,22 @@ func TestFileTail(t *testing.T) {
 	f1.Sync()
 	log.Trace().Str("file", f1.Name()).Int64("size", fsutil.FSizeN(f1)).Msg("write: test 1 2\ntest 1 3")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 1", "path": f1.Name(), "type": "file"}},
-		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 2", "path": f1.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 1", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
+		{
+			Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 2", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, true, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
+
 	// complete line
 	if _, err = f1.WriteString("\n"); err != nil {
 		t.Fatal(err)
@@ -170,12 +179,17 @@ func TestFileTail(t *testing.T) {
 	f1.Sync()
 	log.Trace().Str("file", f1.Name()).Int64("size", fsutil.FSizeN(f1)).Msg("write: \n, complete test 1 3\n")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 3", "path": f1.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 3", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	// Check for truncate and append
 	f2.Truncate(0)
@@ -186,12 +200,17 @@ func TestFileTail(t *testing.T) {
 	f2.Sync()
 	log.Trace().Str("file", f2.Name()).Int64("size", fsutil.FSizeN(f2)).Msg("truncate, write: test 2 \n")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 2 ", "path": f2.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 2 ", "path": f2.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, true, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	time.Sleep(100 * time.Millisecond)
 	log.Trace().Msg("shutdown initiated")
@@ -202,6 +221,8 @@ func TestFileTail(t *testing.T) {
 	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	if startErr != nil {
 		t.Fatalf("in.Start() error = %v", startErr)
@@ -227,12 +248,17 @@ func TestFileTail(t *testing.T) {
 	f1.Sync()
 	log.Trace().Str("file", f1.Name()).Int64("size", fsutil.FSizeN(f1)).Msg("write: test 1 4\n")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 4", "path": f1.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": "test 1 4", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	time.Sleep(100 * time.Millisecond)
 	log.Trace().Msg("shutdown initiated")
@@ -243,6 +269,8 @@ func TestFileTail(t *testing.T) {
 	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	if startErr != nil {
 		t.Fatalf("second in.Start() error = %v", startErr)
@@ -325,12 +353,18 @@ func TestFileTailFromEnd(t *testing.T) {
 	f1.Sync()
 	log.Trace().Str("file", f1.Name()).Int64("size", fsutil.FSizeN(f1)).Msg("write: test 1 2\ntest 1 3")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 2", "path": f1.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 2", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
+
 	// complete line
 	if _, err = f1.WriteString("\n"); err != nil {
 		t.Fatal(err)
@@ -338,12 +372,17 @@ func TestFileTailFromEnd(t *testing.T) {
 	f1.Sync()
 	log.Trace().Str("file", f1.Name()).Int64("size", fsutil.FSizeN(f1)).Msg("write: \n, complete test 1 3\n")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 3", "path": f1.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 3", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	// Check for truncate and append
 	f2.Truncate(0)
@@ -354,12 +393,17 @@ func TestFileTailFromEnd(t *testing.T) {
 	f2.Sync()
 	log.Trace().Str("file", f2.Name()).Int64("size", fsutil.FSizeN(f2)).Msg("truncate, write: test 2 \n")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 2 ", "path": f2.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 2 ", "path": f2.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	time.Sleep(100 * time.Millisecond)
 	log.Trace().Msg("shutdown initiated")
@@ -374,6 +418,8 @@ func TestFileTailFromEnd(t *testing.T) {
 	if startErr != nil {
 		t.Fatalf("in.Start() error = %v", startErr)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	// start again, no new events
 	fchan = make(chan *event.Event, 10)
@@ -395,12 +441,17 @@ func TestFileTailFromEnd(t *testing.T) {
 	f1.Sync()
 	log.Trace().Str("file", f1.Name()).Int64("size", fsutil.FSizeN(f1)).Msg("write: test 1 4\n")
 	wantEvents = []*event.Event{
-		{Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 4", "path": f1.Name(), "type": "file"}},
+		{
+			Fields: map[string]interface{}{"name": "syslog", "host": "localhost", "message": "test 1 4", "path": f1.Name(), "type": "file"},
+			Tags:   map[string]int{},
+		},
 	}
 	events = test.EventsFromChannel(fchan, 2*interval+100*time.Millisecond)
 	if eq, diff = test.EventsCmp(wantEvents, events, false, true, false); !eq {
 		t.Errorf("events (want %d, got %d) mismatch:\n%s", len(wantEvents), len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	time.Sleep(100 * time.Millisecond)
 	log.Trace().Msg("shutdown initiated")
@@ -411,6 +462,8 @@ func TestFileTailFromEnd(t *testing.T) {
 	if eq, diff = test.EventsCmp(nil, events, false, true, false); !eq {
 		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 
 	if startErr != nil {
 		t.Fatalf("second in.Start() error = %v", startErr)
@@ -459,6 +512,7 @@ func TestFileStress(t *testing.T) {
 	for _, s := range testData {
 		e := &event.Event{
 			Fields: map[string]interface{}{"name": "line", "host": "localhost", "message": s, "path": "", "type": "file"},
+			Tags:   map[string]int{},
 		}
 		wantEvents = append(wantEvents, e)
 	}
@@ -506,12 +560,16 @@ func TestFileStress(t *testing.T) {
 	wg.Wait()
 
 	if startErr != nil {
+		// put to pool for reuse
+		event.PutSlice(events)
 		t.Fatalf("second in.Start() error = %v", startErr)
 	}
 
 	if eq, diff := test.EventsCmp(wantEvents, events, true, true, true); !eq {
 		t.Errorf("second flush events(want %d, got %d) mismatch:\n%s", 0, len(events), diff)
 	}
+	// put to pool for reuse
+	event.PutSlice(events)
 }
 
 func benchmarkFile(b *testing.B, testDir string, n int, readBuffer string) {
@@ -554,8 +612,9 @@ func benchmarkFile(b *testing.B, testDir string, n int, readBuffer string) {
 			defer wg.Done()
 			for e := range fchan {
 				count++
-				_ = e
 				// events = append(events, e)
+				// put to pool for reuse
+				event.Put(e)
 			}
 			cancel()
 		}()
