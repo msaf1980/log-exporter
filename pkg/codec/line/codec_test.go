@@ -8,8 +8,8 @@ import (
 	_ "github.com/msaf1980/log-exporter/pkg/codec_init"
 	"github.com/msaf1980/log-exporter/pkg/config"
 	"github.com/msaf1980/log-exporter/pkg/event"
+	"github.com/msaf1980/log-exporter/pkg/test"
 	"github.com/msaf1980/log-exporter/pkg/timeutil"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLine_Parse(t *testing.T) {
@@ -57,6 +57,7 @@ func TestLine_Parse(t *testing.T) {
 			want: &event.Event{
 				Timestamp: ts.Time(),
 				Fields:    map[string]interface{}{"timestamp": ts.String(), "message": "line", "type": typ, "name": "line", "host": hostname, "path": path},
+				Tags:      map[string]int{},
 			},
 		},
 		{
@@ -65,16 +66,20 @@ func TestLine_Parse(t *testing.T) {
 			want: &event.Event{
 				Timestamp: ts.Time(),
 				Fields:    map[string]interface{}{"timestamp": ts.String(), "message": "string", "type": typ, "name": "line", "host": hostname, "path": path},
+				Tags:      map[string]int{},
 			},
 		},
 	}
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := p.Parse(ts, tt.data)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Line.Parse() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Line.Parse() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, got, tt.want)
+			if eq, diff := test.EventCmp(got, tt.want, false, false); !eq {
+				t.Errorf("event[%d] mismatch:\n%s", i, diff)
+			}
+			event.Put(got)
 		})
 	}
 }
@@ -90,6 +95,7 @@ func TestLine_ParseWithName(t *testing.T) {
 		Timestamp: ts.Time(), Fields: map[string]interface{}{
 			"name": name, "host": hostname, "message": message, "path": path, "timestamp": ts.String(), "type": typ,
 		},
+		Tags: map[string]int{},
 	}
 
 	p, err := codec.New(&config.ConfigRaw{"type": typ, "name": name}, &config.Common{Hostname: hostname}, path)
@@ -100,7 +106,10 @@ func TestLine_ParseWithName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Line.Parse() error = %v", err)
 	}
-	assert.Equal(t, want, got)
+	if eq, diff := test.EventCmp(got, want, false, false); !eq {
+		t.Errorf("event mismatch:\n%s", diff)
+	}
+	event.Put(got)
 }
 
 func benchmarkPase(b *testing.B, data []byte) {
@@ -111,10 +120,11 @@ func benchmarkPase(b *testing.B, data []byte) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := p.Parse(ts, data)
+		e, err := p.Parse(ts, data)
 		if err != nil {
 			b.Fatal(err)
 		}
+		event.Put(e)
 	}
 }
 

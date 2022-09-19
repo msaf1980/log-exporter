@@ -12,6 +12,7 @@ import (
 var ErrIncomplete = errors.New("codec line incomplete")
 var ErrEmpty = errors.New("codec line empty")
 
+// Codec can be non thread-safe, so alloc for every watcher in input
 type Codec interface {
 	Name() string
 	// Parse return event, praseErrror

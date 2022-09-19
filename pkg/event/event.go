@@ -6,9 +6,20 @@ import (
 )
 
 type Event struct {
+	Data      []byte // pooled buffer
+	Size      int    // size of pooled buffer
 	Timestamp time.Time
 	Fields    map[string]interface{}
 	Tags      map[string]int
+}
+
+func New(size int) *Event {
+	return &Event{
+		Data:   make([]byte, size),
+		Size:   size,
+		Fields: map[string]interface{}{},
+		Tags:   map[string]int{},
+	}
 }
 
 func String(e *Event) string {
