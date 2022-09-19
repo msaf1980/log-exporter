@@ -17,6 +17,23 @@ func max(a, b int) int {
 	return b
 }
 
+// EventClone clone event (not deep copy for fields)
+func EventClone(e *event.Event) *event.Event {
+	c := &event.Event{
+		Timestamp: e.Timestamp,
+		Fields:    map[string]interface{}{},
+		Tags:      map[string]int{},
+	}
+	for k, v := range e.Fields {
+		c.Fields[k] = v
+	}
+	for k, v := range e.Tags {
+		c.Tags[k] = v
+	}
+
+	return c
+}
+
 func EventsDump(events []*event.Event) string {
 	var sb strings.Builder
 	if len(events) == 0 {
