@@ -30,7 +30,7 @@ type codecFn func(*config.ConfigRaw, *config.Common, string) (Codec, error)
 var codecs = map[string]codecFn{}
 
 func New(cfg *config.ConfigRaw, common *config.Common, path string) (Codec, error) {
-	codec := cfg.GetStringWithDefault("codec", "")
+	codec := cfg.GetStringWithDefault("codec", "line") // line is default codec
 
 	if n, exist := codecs[codec]; exist {
 		return n(cfg, common, path)

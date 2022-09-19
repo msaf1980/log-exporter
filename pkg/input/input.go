@@ -35,7 +35,7 @@ func New(cfg *config.ConfigRaw, common *config.Common) (Input, error) {
 
 func Set(name string, f InputFn) {
 	if _, exist := inputs[name]; exist {
-		panic(errors.New("'" + name + "' source already exist"))
+		panic(errors.New("'" + name + "' input already exist"))
 	}
 	inputs[name] = f
 }
