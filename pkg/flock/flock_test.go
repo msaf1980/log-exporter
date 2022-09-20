@@ -2,7 +2,6 @@ package flock
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,7 +70,7 @@ func LockFromAnotherProc(t *testing.T, path string, kill chan struct{}) (done ch
 }
 
 func TestLockNoContention(t *testing.T) {
-	f, err := ioutil.TempFile("", "lock")
+	f, err := os.CreateTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +112,7 @@ func TestLockNoContention(t *testing.T) {
 }
 
 func TestLockBlocks(t *testing.T) {
-	f, err := ioutil.TempFile("", "lock")
+	f, err := os.CreateTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +161,7 @@ func TestLockBlocks(t *testing.T) {
 }
 
 func TestTryLock(t *testing.T) {
-	f, err := ioutil.TempFile("", "lock")
+	f, err := os.CreateTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +177,7 @@ func TestTryLock(t *testing.T) {
 // temporary disabled failed test in ci
 // @TODO: refactor tests for work under CI
 func _TestTryLockNoBlock(t *testing.T) {
-	f, err := ioutil.TempFile("", "lock")
+	f, err := os.CreateTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +229,7 @@ func _TestTryLockNoBlock(t *testing.T) {
 }
 
 func TestUnlockedWithTimeout(t *testing.T) {
-	f, err := ioutil.TempFile("", "lock")
+	f, err := os.CreateTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +244,7 @@ func TestUnlockedWithTimeout(t *testing.T) {
 // temporary disabled failed test in ci
 // @TODO: refactor tests for work under CI
 func _TestLockWithTimeout(t *testing.T) {
-	f, err := ioutil.TempFile("", "lock")
+	f, err := os.CreateTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +305,7 @@ func TestStress(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	dir, err := ioutil.TempDir("", "lock")
+	dir, err := os.MkdirTemp("", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
